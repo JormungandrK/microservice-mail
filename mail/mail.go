@@ -5,8 +5,9 @@ import (
 	"html/template"
 	"strconv"
 
+	gomail "gopkg.in/gomail.v2"
+
 	"github.com/JormungandrK/microservice-mail/config"
-	"github.com/go-gomail/gomail"
 )
 
 // Info holds info for the email template
