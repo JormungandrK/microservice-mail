@@ -1,0 +1,16 @@
+{
+	"verificationURL": "http://kong:8000/users/verify",
+	"mail": {
+		"host": "fakesmtp",
+		"port": "25",
+		"user": "fake@email.com",
+		"password": "password",
+		"email": "dev@jormungandr.org"
+	},
+	"rabbitmq": {
+		"username": "guest",
+		"password": "guest",
+		"host": "rabbitmq",
+		"port": "5672"
+	}
+}

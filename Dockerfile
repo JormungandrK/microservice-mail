@@ -1,23 +1,17 @@
 ### Multi-stage build
-FROM golang:1.8.3-alpine3.6 as build
+FROM jormungandrk/goa-build as build
 
-RUN apk add --no-cache git
-
-COPY . /go/src/github.com/JormungandrK/microservice-email
-
-WORKDIR /go/src/github.com/JormungandrK/microservice-email
-
-RUN go get -u -v github.com/golang/dep/cmd/dep
-RUN dep ensure -v
-RUN go install github.com/JormungandrK/microservice-email
-
+COPY . /go/src/github.com/JormungandrK/microservice-mail
+RUN go install github.com/JormungandrK/microservice-mail
 
 ### Main
 FROM alpine:3.6
 
-COPY --from=build /go/bin/microservice-email /usr/local/bin/microservice-email
+COPY --from=build /go/bin/microservice-mail /usr/local/bin/microservice-mail
+COPY public /public
+COPY config.json config.json
 EXPOSE 8080
 
 ENV API_GATEWAY_URL="http://localhost:8001"
 
-CMD ["/usr/local/bin/microservice-email"]
+CMD ["/usr/local/bin/microservice-mail"]
