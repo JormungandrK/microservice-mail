@@ -54,7 +54,7 @@ func TestSend(t *testing.T) {
 		"verificationURL": "http://kong:8000/users",
 		"mail": {
 			"host": "smtp.mailtrap.io",
-			"port": "25",
+			"port": "2525",
 			"user": "7dfa3710bee1c3",
 			"password": "68d8ccb96fb52b",
 			"email": "e0e3decc9e-f10431@inbox.mailtrap.io"
