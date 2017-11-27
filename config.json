@@ -2,7 +2,7 @@
 	"verificationURL": "http://kong:8000/users/verify",
 	"mail": {
 		"host": "fakesmtp",
-		"port": "25",
+		"port": "1025",
 		"user": "fake@email.com",
 		"password": "password",
 		"email": "dev@jormungandr.org"
