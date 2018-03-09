@@ -5,7 +5,7 @@ COPY . /go/src/github.com/JormungandrK/microservice-mail
 RUN go install github.com/JormungandrK/microservice-mail
 
 ### Main
-FROM alpine:3.6
+FROM alpine:3.7
 
 COPY --from=build /go/bin/microservice-mail /usr/local/bin/microservice-mail
 COPY public /public
