@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/JormungandrK/microservice-mail/config"
+	"github.com/Microkubes/microservice-mail/config"
 )
 
 func TestParseTemplate(t *testing.T) {

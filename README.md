@@ -1,6 +1,6 @@
 # microservice-email
 
-[![Build](https://travis-ci.com/JormungandrK/microservice-mail.svg?token=CxRhMM58BLTPkR2pgxqw&branch=master)](https://travis-ci.com/JormungandrK/microservice-mail)
+[![Build](https://travis-ci.com/Microkubes/microservice-mail.svg?token=CxRhMM58BLTPkR2pgxqw&branch=master)](https://travis-ci.com/Microkubes/microservice-mail)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/9cee97cb8b85f66c7185/test_coverage)](https://codeclimate.com/repos/5a01ff2cf1c05e02dd000014/test_coverage)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9cee97cb8b85f66c7185/maintainability)](https://codeclimate.com/repos/5a01ff2cf1c05e02dd000014/maintainability)
 
@@ -17,7 +17,7 @@ export PATH=$GOPATH/bin:$PATH
 Clone the repo:
 ```
 cd $GOPATH/src
-git clone git@github.com:JormungandrK/microservice-mail.git
+git clone git@github.com:Microkubes/microservice-mail.git
 ```
 
 Install the dependencies:

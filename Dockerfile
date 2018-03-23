@@ -1,8 +1,8 @@
 ### Multi-stage build
 FROM jormungandrk/goa-build as build
 
-COPY . /go/src/github.com/JormungandrK/microservice-mail
-RUN go install github.com/JormungandrK/microservice-mail
+COPY . /go/src/github.com/Microkubes/microservice-mail
+RUN go install github.com/Microkubes/microservice-mail
 
 ### Main
 FROM alpine:3.7

@@ -7,7 +7,7 @@ import (
 
 	gomail "gopkg.in/gomail.v2"
 
-	"github.com/JormungandrK/microservice-mail/config"
+	"github.com/Microkubes/microservice-mail/config"
 )
 
 // Info holds info for the email template

@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/JormungandrK/microservice-mail/config"
-	"github.com/JormungandrK/microservice-mail/mail"
-	"github.com/JormungandrK/microservice-tools/rabbitmq"
+	"github.com/Microkubes/microservice-mail/config"
+	"github.com/Microkubes/microservice-mail/mail"
+	"github.com/Microkubes/microservice-tools/rabbitmq"
 )
 
 func logOnError(err error, msg string) {
