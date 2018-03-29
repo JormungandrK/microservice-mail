@@ -41,13 +41,13 @@ go test -v $(go list ./... | grep -v vendor)
 ## Docker Image
 To build the docker image run:
 ```bash
-docker build -t jormungandrk/microservice-mail .
+docker build -t microkubes/microservice-mail .
 ```
 
 ## Running the microservice
 To run the service type:
 ```bash
-docker run -it -e SERVICE_CONFIG_FILE=config.json jormungandrk/microservice-mail
+docker run -it -e SERVICE_CONFIG_FILE=config.json microkubes/microservice-mail
 ```
 
 ## Service configuration
@@ -63,7 +63,7 @@ Here's an example of a JSON configuration file:
 		"port": "25",
 		"user": "fake@email.com",
 		"password": "password",
-		"email": "dev@jormungandr.org"
+		"email": "dev@microkubes.org"
 	},
 	"rabbitmq": {
 		"username": "guest",
