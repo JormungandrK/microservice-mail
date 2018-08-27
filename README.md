@@ -54,6 +54,16 @@ docker run -it -e SERVICE_CONFIG_FILE=config.json microkubes/microservice-mail
 
 The service loads the  configuration from a JSON file /run/secrets/microservice_mail_config.json. To change the path set the
 **SERVICE_CONFIG_FILE** env var.
+
+For testing purposes you may want to enable sending the email notifications to a local SMTP server over unencrypted connection.
+To allow this, you must set:
+
+```bash
+export ALLOW_UNENCRYPTED_CONNECTION=true
+```
+
+**Note**: Be careful not to allow sending email over unencrypted connection in production mode!
+
 Here's an example of a JSON configuration file:
 
 ```json
