@@ -86,5 +86,5 @@ Here's an example of a JSON configuration file:
 
 ## Contributing
 
-For contributing to this repository or its documentation, see the [Contributing guidelines (CONTRIBUTING.md).
+For contributing to this repository or its documentation, see the [Contributing guidelines](CONTRIBUTING.md).
 
