@@ -1,5 +1,18 @@
 {
-	"verificationURL": "http://kong:8000/users/verify",
+	"template": {
+		"verification": {
+			"template": "user-verification",
+			"data": {
+				"url": "http://kong:8000/users/verify"
+			}
+		},
+		"forgotPassword": {
+			"template": "forgot-password",
+			"data": {
+				"url": "http://kong:8000/users/verify"
+			}
+		}
+	},
 	"mail": {
 		"host": "fakesmtp",
 		"port": "1025",

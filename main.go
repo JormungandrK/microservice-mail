@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"github.com/Microkubes/microservice-mail/config"
 	"github.com/Microkubes/microservice-mail/mail"
 	"github.com/Microkubes/microservice-tools/rabbitmq"
+	"github.com/streadway/amqp"
 )
 
 func logOnError(err error, msg string) {
@@ -25,13 +25,49 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
+
+	cfg := getConfig()
+
+	rabbitMQChannel := getRabbitMQChannel(cfg)
+	channel := rabbitmq.AMQPChannel{
+		Channel: rabbitMQChannel,
+	}
+
+	for {
+		deliveryList, err := channel.Receive("email")
+		logOnError(err, "Failed to consume the channel")
+
+		for delivery := range deliveryList {
+			go handleDelivery(delivery)
+		}
+	}
+
+	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+}
+
+func handleDelivery(delivery Delivery) {
+	log.Printf("Received a message: %s", delivery.Body)
+	message, err := mail.ParseRabbitMQMessage(&delivery.Body)
+	logOnError(err, err.Error())
+	body, err := mail.GenerateMailBody(cfg, &message)
+	logOnError(err, err.Error())
+	err = mail.SendMail(&message, cfg, &body)
+	logOnError(err, fmt.Sprintf("Failed to send mail to %s", message.Email))
+	delivery.Ack(false)
+	log.Printf("Done")
+}
+
+func getConfig() *config.Config {
 	cf := os.Getenv("SERVICE_CONFIG_FILE")
 	if cf == "" {
 		cf = "/run/secrets/microservice_mail_config.json"
 	}
 	cfg, err := config.LoadConfig(cf)
 	logOnError(err, "Failed to read the config file!")
+	return cfg
+}
 
+func getRabbitMQChannel(cfg *config.Config) *amqp.Channel {
 	conn, ch, err := rabbitmq.Dial(
 		cfg.RabbitMQ["username"],
 		cfg.RabbitMQ["password"],
@@ -41,39 +77,5 @@ func main() {
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 	defer ch.Close()
-
-	channel := &rabbitmq.AMQPChannel{ch}
-	msgs, err := channel.Receive("verification-email")
-	if err != nil {
-		logOnError(err, "Failed to consume the channel")
-	}
-
-	forever := make(chan bool)
-
-	go func() {
-		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
-
-			mailInfo := mail.Info{}
-			err := json.Unmarshal(d.Body, &mailInfo)
-			logOnError(err, "Failed to unmarshal body")
-
-			mailInfo.VerificationURL = cfg.VerificationURL
-			template, err := mail.ParseTemplate("./public/mail/template.html", mailInfo)
-			if err != nil {
-				logOnError(err, "Failed to parse mail tamplate")
-			}
-
-			err = mail.Send(&mailInfo, cfg, template)
-			logOnError(err, fmt.Sprintf("Failed to send mail to %s", mailInfo.Email))
-
-			d.Ack(false)
-			log.Printf("Done")
-		}
-	}()
-
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-
-	// Make goroutine to work forever
-	<-forever
+	return ch
 }
