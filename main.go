@@ -11,16 +11,18 @@ import (
 	"github.com/streadway/amqp"
 )
 
-func logOnError(err error, msg string) {
+func logOnError(err error, msg string) bool {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
+		fmt.Println(msg, err)
+		return true
 	}
+	return false
 }
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
-		panic(fmt.Sprintf("%s: %s", msg, err))
+		log.Fatalf(msg, err)
+		panic(fmt.Sprintf(msg, err))
 	}
 }
 
@@ -28,33 +30,45 @@ func main() {
 
 	cfg := getConfig()
 
-	rabbitMQChannel := getRabbitMQChannel(cfg)
+	amqpChannel := getAMQPChannel(cfg)
 	channel := rabbitmq.AMQPChannel{
-		Channel: rabbitMQChannel,
+		Channel: amqpChannel,
 	}
 
 	for {
 		deliveryList, err := channel.Receive("email")
 		logOnError(err, "Failed to consume the channel")
-
 		for delivery := range deliveryList {
-			go handleDelivery(delivery)
+			go handleDelivery(delivery, cfg)
 		}
 	}
-
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 }
 
-func handleDelivery(delivery Delivery) {
+func handleDelivery(delivery amqp.Delivery, cfg *config.Config) bool {
+
 	log.Printf("Received a message: %s", delivery.Body)
-	message, err := mail.ParseRabbitMQMessage(&delivery.Body)
-	logOnError(err, err.Error())
+
+	message, err := mail.ParseAMQPMessage(&delivery.Body)
+	if logOnError(err, "Failed to parse AMQP Message") {
+		delivery.Ack(false)
+		return false
+	}
+
 	body, err := mail.GenerateMailBody(cfg, &message)
-	logOnError(err, err.Error())
+	if logOnError(err, "Failed to generate mail body for template "+message.TemplateName) {
+		delivery.Ack(false)
+		return false
+	}
+
 	err = mail.SendMail(&message, cfg, &body)
-	logOnError(err, fmt.Sprintf("Failed to send mail to %s", message.Email))
+	if logOnError(err, "Failed to send mail to "+message.Email) {
+		delivery.Ack(false)
+		return false
+	}
+
+	log.Printf("Message to " + message.Email + " sucessfully sended!")
 	delivery.Ack(false)
-	log.Printf("Done")
+	return true
 }
 
 func getConfig() *config.Config {
@@ -67,15 +81,13 @@ func getConfig() *config.Config {
 	return cfg
 }
 
-func getRabbitMQChannel(cfg *config.Config) *amqp.Channel {
-	conn, ch, err := rabbitmq.Dial(
+func getAMQPChannel(cfg *config.Config) *amqp.Channel {
+	_, ch, err := rabbitmq.Dial(
 		cfg.RabbitMQ["username"],
 		cfg.RabbitMQ["password"],
 		cfg.RabbitMQ["host"],
 		cfg.RabbitMQ["post"],
 	)
 	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-	defer ch.Close()
 	return ch
 }

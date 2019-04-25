@@ -14,22 +14,13 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-// Info holds info for the email template (DEPRECATED)(REMOVE!)
-type Info struct {
-	ID              string `json:"id,omitempty"`
-	Name            string `json:"name,omitempty"`
-	Email           string `json:"email,omitempty"`
-	VerificationURL string `json:"verificationURL,omitempty"`
-	Token           string `json:"token,omitempty"`
-}
-
-// RabbitMQMessage message received from rabbitMQ
-type RabbitMQMessage struct {
-	ID           string `json:"id,omitempty"`
-	Name         string `json:"name,omitempty"`
-	Email        string `json:"email,omitempty"`
-	TemplateName string `json:"template,omitempty"`
-	Data         string `json:"data,omitempty"`
+// AMQPMessage message received from rabbitMQ
+type AMQPMessage struct {
+	ID           string            `json:"id,omitempty"`
+	Name         string            `json:"name,omitempty"`
+	Email        string            `json:"email,omitempty"`
+	TemplateName string            `json:"template,omitempty"`
+	Data         map[string]string `json:"data,omitempty"`
 }
 
 // VerificationMail object specified for verification mails
@@ -57,9 +48,9 @@ func (u *unencryptedAuth) Start(server *smtp.ServerInfo) (string, []byte, error)
 	return u.Auth.Start(server)
 }
 
-// ParseRabbitMQMessage helper for parsing RabbitMQ Body to our RabbitMQMessage
-func ParseRabbitMQMessage(body *[]byte) (RabbitMQMessage, error) {
-	msg := RabbitMQMessage{}
+// ParseAMQPMessage helper for parsing RabbitMQ Body to our RabbitMQMessage
+func ParseAMQPMessage(body *[]byte) (AMQPMessage, error) {
+	msg := AMQPMessage{}
 	err := json.Unmarshal(*body, &msg)
 	if err != nil {
 		return msg, fmt.Errorf("Failed to parse message from RabbitMQ")
@@ -68,24 +59,28 @@ func ParseRabbitMQMessage(body *[]byte) (RabbitMQMessage, error) {
 }
 
 // GenerateMailBody generates mail body from configuration & message
-func GenerateMailBody(cfg *config.Config, message *RabbitMQMessage) (string, error) {
+func GenerateMailBody(cfg *config.Config, message *AMQPMessage) (string, error) {
 	templateConfig, success := cfg.Template[message.TemplateName]
 	if !success {
 		return "", fmt.Errorf("Doesn't exist template config for received message [" + message.TemplateName + "]")
 	}
-
-	// TODO: refactor (state pattern)
-	if templateConfig.TemplateName == "verification" {
-		return handleVerificationMail()
-	} else if templateConfig.TemplateName == "forgotPassword" {
-		return handleForgotPasswordMail()
-	} else {
-		return "", fmt.Errorf("Unknown template name " + message.TemplateName)
+	if message.Data == nil {
+		message.Data = map[string]string{}
 	}
+	for key, value := range templateConfig {
+		message.Data[key] = value
+	}
+	if message.TemplateName == "verification" {
+		return handleVerificationMail(message)
+	}
+	if message.TemplateName == "forgotPassword" {
+		return handleForgotPasswordMail(message)
+	}
+	return "", fmt.Errorf("Unknown template name " + message.TemplateName)
 }
 
 // SendMail sends an email for verification.
-func SendMail(message *RabbitMQMessage, cfg *config.Config, body *string) error {
+func SendMail(message *AMQPMessage, cfg *config.Config, body *string) error {
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", cfg.Mail["email"])
 	msg.SetHeader("To", message.Email)
@@ -112,16 +107,24 @@ func SendMail(message *RabbitMQMessage, cfg *config.Config, body *string) error 
 	return err
 }
 
-func handleVerificationMail() (string, error) {
-	return "", nil
+func handleVerificationMail(message *AMQPMessage) (string, error) {
+	content, err := parseTemplate(message.TemplateName, message.Data)
+	if err != nil {
+		return "", err
+	}
+	return content, nil
 }
 
-func handleForgotPasswordMail() (string, error) {
-	return "", nil
+func handleForgotPasswordMail(message *AMQPMessage) (string, error) {
+	content, err := parseTemplate(message.TemplateName, message.Data)
+	if err != nil {
+		return "", err
+	}
+	return content, nil
 }
 
 func parseTemplate(templateName string, data interface{}) (string, error) {
-	template, err := template.ParseFiles("./public/mail/" + templateName + ".html")
+	template, err := template.ParseFiles("./public/template/" + templateName + ".html")
 	if err != nil {
 		return "", err
 	}
