@@ -86,7 +86,7 @@ func getAMQPChannel(cfg *config.Config) *amqp.Channel {
 		cfg.RabbitMQ["username"],
 		cfg.RabbitMQ["password"],
 		cfg.RabbitMQ["host"],
-		cfg.RabbitMQ["post"],
+		cfg.RabbitMQ["port"],
 	)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	return ch
