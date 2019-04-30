@@ -1,23 +1,23 @@
 {
 	"template": {
-		"verification": {
-			"url": "http://localhost:8000/users/verify"
+		"userVerification": {
+			"url": "http://kong:8000/users/verify"
 		},
 		"forgotPassword": {
-			"url": "http://localhost:8000/users/verify"
+			"url": "http://kong:8000/users/verify"
 		}
 	},
 	"mail": {
-		"host": "localhost",
+		"host": "fakesmtp",
 		"port": "1025",
 		"user": "fake@email.com",
 		"password": "password",
 		"email": "dev@jormungandr.org"
 	},
-	"rabbitmq": {
+	"amqpConfig": {
 		"username": "guest",
 		"password": "guest",
-		"host": "localhost",
+		"host": "rabbitmq",
 		"port": "5672"
 	}
 }

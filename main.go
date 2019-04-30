@@ -36,7 +36,7 @@ func main() {
 	}
 
 	for {
-		deliveryList, err := channel.Receive("email")
+		deliveryList, err := channel.Receive("email-queue")
 		logOnError(err, "Failed to consume the channel")
 		for delivery := range deliveryList {
 			go handleDelivery(delivery, cfg)
@@ -83,11 +83,11 @@ func getConfig() *config.Config {
 
 func getAMQPChannel(cfg *config.Config) *amqp.Channel {
 	_, ch, err := rabbitmq.Dial(
-		cfg.RabbitMQ["username"],
-		cfg.RabbitMQ["password"],
-		cfg.RabbitMQ["host"],
-		cfg.RabbitMQ["port"],
+		cfg.AMQPConfig["username"],
+		cfg.AMQPConfig["password"],
+		cfg.AMQPConfig["host"],
+		cfg.AMQPConfig["port"],
 	)
-	failOnError(err, "Failed to connect to RabbitMQ")
+	failOnError(err, "Failed to connect to AMQP server")
 	return ch
 }

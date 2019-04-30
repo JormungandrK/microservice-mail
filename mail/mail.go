@@ -73,7 +73,7 @@ func GenerateMailBody(cfg *config.Config, message *AMQPMessage) (string, error) 
 
 	content, err := parseTemplate(message.TemplateName, message.Data)
 	if err != nil {
-		return "", fmt.Errorf("Failed on parsing template " + message.TemplateName)
+		return "", fmt.Errorf("Failed on parsing template: %s", err)
 	}
 	return content, nil
 }

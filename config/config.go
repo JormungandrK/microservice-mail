@@ -15,7 +15,7 @@ type Config struct {
 	Mail map[string]string `json:"mail"`
 
 	// RabbitMQ holds information about the rabbitmq server
-	RabbitMQ map[string]string `json:"rabbitmq"`
+	AMQPConfig map[string]string `json:"amqpConfig"`
 }
 
 // LoadConfig loads a Config from a configuration JSON file.
