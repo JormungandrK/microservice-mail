@@ -14,13 +14,11 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-// AMQPMessage message received from rabbitMQ
+// AMQPMessage message received from AMQP server
 type AMQPMessage struct {
-	ID           string            `json:"id,omitempty"`
-	Name         string            `json:"name,omitempty"`
 	Email        string            `json:"email,omitempty"`
-	TemplateName string            `json:"template,omitempty"`
 	Data         map[string]string `json:"data,omitempty"`
+	TemplateName string            `json:"template,omitempty"`
 }
 
 // VerificationMail object specified for verification mails
@@ -48,12 +46,12 @@ func (u *unencryptedAuth) Start(server *smtp.ServerInfo) (string, []byte, error)
 	return u.Auth.Start(server)
 }
 
-// ParseAMQPMessage helper for parsing RabbitMQ Body to our RabbitMQMessage
+// ParseAMQPMessage helper for parsing AMQP message Body to our AMQPMessage
 func ParseAMQPMessage(body *[]byte) (AMQPMessage, error) {
 	msg := AMQPMessage{}
 	err := json.Unmarshal(*body, &msg)
 	if err != nil {
-		return msg, fmt.Errorf("Failed to parse message from RabbitMQ")
+		return msg, fmt.Errorf("Failed to parse message from AMQP Server")
 	}
 	return msg, nil
 }
@@ -61,17 +59,18 @@ func ParseAMQPMessage(body *[]byte) (AMQPMessage, error) {
 // GenerateMailBody generates mail body from configuration & message
 func GenerateMailBody(cfg *config.Config, message *AMQPMessage) (string, error) {
 	templateConfig, success := cfg.Template[message.TemplateName]
+
 	if !success {
 		return "", fmt.Errorf("Doesn't exist template config for received message [" + message.TemplateName + "]")
 	}
 	if message.Data == nil {
 		message.Data = map[string]string{}
 	}
-	for key, value := range templateConfig {
+	for key, value := range templateConfig.Data {
 		message.Data[key] = value
 	}
 
-	content, err := parseTemplate(message.TemplateName, message.Data)
+	content, err := parseTemplate(templateConfig.Filename, message.Data)
 	if err != nil {
 		return "", fmt.Errorf("Failed on parsing template: %s", err)
 	}
@@ -83,7 +82,7 @@ func SendMail(message *AMQPMessage, cfg *config.Config, body *string) error {
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", cfg.Mail["email"])
 	msg.SetHeader("To", message.Email)
-	msg.SetHeader("Subject", "Verify Your Account!")
+	msg.SetHeader("Subject", cfg.Template[message.TemplateName].Subject)
 	msg.SetBody("text/html", *body)
 
 	port, err := strconv.Atoi(cfg.Mail["port"])
@@ -106,8 +105,8 @@ func SendMail(message *AMQPMessage, cfg *config.Config, body *string) error {
 	return err
 }
 
-func parseTemplate(templateName string, data interface{}) (string, error) {
-	template, err := template.ParseFiles("./public/template/" + templateName + ".html")
+func parseTemplate(templateFilename string, data interface{}) (string, error) {
+	template, err := template.ParseFiles("./public/template/" + templateFilename)
 	if err != nil {
 		return "", err
 	}

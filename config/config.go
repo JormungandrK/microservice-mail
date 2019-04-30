@@ -5,10 +5,17 @@ import (
 	"io/ioutil"
 )
 
+// MailTemplate holds data for mail template
+type MailTemplate struct {
+	Filename string            `json:"filename"`
+	Subject  string            `json:"subject"`
+	Data     map[string]string `json:"data"`
+}
+
 // Config holds the microservice full configuration.
 type Config struct {
 	// VerificationURL contains the url to the verification action
-	Template map[string]map[string]string `json:"template"`
+	Template map[string]MailTemplate `json:"templates"`
 
 	// Mail is a map of <property>:<value>. For example,
 	// "host": "smtp.example.com"
