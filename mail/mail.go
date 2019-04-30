@@ -70,13 +70,12 @@ func GenerateMailBody(cfg *config.Config, message *AMQPMessage) (string, error) 
 	for key, value := range templateConfig {
 		message.Data[key] = value
 	}
-	if message.TemplateName == "verification" {
-		return handleVerificationMail(message)
+
+	content, err := parseTemplate(message.TemplateName, message.Data)
+	if err != nil {
+		return "", fmt.Errorf("Failed on parsing template " + message.TemplateName)
 	}
-	if message.TemplateName == "forgotPassword" {
-		return handleForgotPasswordMail(message)
-	}
-	return "", fmt.Errorf("Unknown template name " + message.TemplateName)
+	return content, nil
 }
 
 // SendMail sends an email for verification.
@@ -105,22 +104,6 @@ func SendMail(message *AMQPMessage, cfg *config.Config, body *string) error {
 
 	err = d.DialAndSend(msg)
 	return err
-}
-
-func handleVerificationMail(message *AMQPMessage) (string, error) {
-	content, err := parseTemplate(message.TemplateName, message.Data)
-	if err != nil {
-		return "", err
-	}
-	return content, nil
-}
-
-func handleForgotPasswordMail(message *AMQPMessage) (string, error) {
-	content, err := parseTemplate(message.TemplateName, message.Data)
-	if err != nil {
-		return "", err
-	}
-	return content, nil
 }
 
 func parseTemplate(templateName string, data interface{}) (string, error) {
