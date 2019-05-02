@@ -5,17 +5,27 @@ import (
 	"io/ioutil"
 )
 
+// MailTemplate holds data for mail template
+type MailTemplate struct {
+	Filename string            `json:"filename"`
+	Subject  string            `json:"subject"`
+	Data     map[string]string `json:"data"`
+}
+
 // Config holds the microservice full configuration.
 type Config struct {
+	// TemplatesBaseLocation defines base path to mail templates
+	TemplateBaseLocation string `json:"templatesBaseLocation"`
+
 	// VerificationURL contains the url to the verification action
-	VerificationURL string `json:"verificationURL"`
+	Template map[string]MailTemplate `json:"templates"`
 
 	// Mail is a map of <property>:<value>. For example,
 	// "host": "smtp.example.com"
 	Mail map[string]string `json:"mail"`
 
 	// RabbitMQ holds information about the rabbitmq server
-	RabbitMQ map[string]string `json:"rabbitmq"`
+	AMQPConfig map[string]string `json:"amqpConfig"`
 }
 
 // LoadConfig loads a Config from a configuration JSON file.

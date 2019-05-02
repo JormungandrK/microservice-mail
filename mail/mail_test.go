@@ -2,56 +2,25 @@ package mail
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/Microkubes/microservice-mail/config"
+	"github.com/Microkubes/microservice-tools/rabbitmq"
+	"github.com/streadway/amqp"
 )
 
-func TestParseTemplate(t *testing.T) {
-	template := `{
-		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-		<html>
-
-		</head>
-
-		<body>
-		<h1>Hello Jormungandr,</h1>
-
-		<p>
-			<a href="http://jormungandr/users/verify">Verify your registration</a>
-		</p>
-		</body>
-
-		</html>
-	}`
-
-	templateFile, err := ioutil.TempFile("", "tmp-template.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer os.Remove(templateFile.Name())
-
-	templateFile.WriteString(template)
-
-	templateFile.Sync()
-
-	tmpl, err := ParseTemplate(templateFile.Name(), map[string]string{})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if tmpl == "" {
-		t.Fatal("Failed to parse template file!")
-	}
-}
-
-func TestSend(t *testing.T) {
+func getConfig() *config.Config {
 	confBytes := []byte(`{
-		"verificationURL": "http://kong:8000/users",
+		"templatesBaseLocation": "./",
+		"templates": {
+			"sometemplate": {
+				"filename" : "test-template.html",
+				"subject": "Template header",
+				"data": {
+					"test": "value"
+				}
+			}
+		},
 		"mail": {
 			"host": "smtp.mailtrap.io",
 			"port": "2525",
@@ -60,40 +29,66 @@ func TestSend(t *testing.T) {
 			"email": "e0e3decc9e-f10431@inbox.mailtrap.io"
 		}
 	}`)
+	config := &config.Config{}
+	json.Unmarshal(confBytes, config)
+	return config
+}
 
-	template := `
-		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-		<html>
+func getAMQPChannel(cfg *config.Config) *amqp.Channel {
+	_, ch, _ := rabbitmq.Dial(
+		cfg.AMQPConfig["username"],
+		cfg.AMQPConfig["password"],
+		cfg.AMQPConfig["host"],
+		cfg.AMQPConfig["port"],
+	)
+	return ch
+}
 
-		</head>
+func getAMQPMessage() []byte {
+	messageBody := []byte(`{
+		"email" : "kalevski@keitaro.com",
+		"template": "sometemplate",
+		"data": { 
+			"test": "value"
+			}
+		}`)
+	return messageBody
+}
 
-		<body>
-		<h1>Hello Jormungandr,</h1>
-
-		<p>
-			<a href="http://jormungandr/users/verify">Verify your registration</a>
-		</p>
-		</body>
-
-		</html>
-	`
-
-	cfg := &config.Config{}
-	err := json.Unmarshal(confBytes, cfg)
+func TestParseAMQPMessage(t *testing.T) {
+	messageBody := getAMQPMessage()
+	parsed, err := ParseAMQPMessage(&messageBody)
 	if err != nil {
-		t.Fatal(err)
+		t.Errorf("Can't parse AMQP Message")
 	}
-
-	mailInfo := Info{
-		"user-id",
-		"jormungandr-test",
-		"e0e3decc9e-f10431@inbox.mailtrap.io",
-		"http://test/verify",
-		"some-token",
+	if parsed.Email != "kalevski@keitaro.com" {
+		t.Errorf("Something went wrong while parsing email property")
 	}
+	if parsed.TemplateName != "sometemplate" {
+		t.Errorf("Something went wrong while parsing template property")
+	}
+	if parsed.Data["test"] != "value" {
+		t.Errorf("Something went wrong while parsing data map")
+	}
+}
 
-	err = Send(&mailInfo, cfg, template)
+func TestGenerateMailBody(t *testing.T) {
+	cfg := getConfig()
+	message := getAMQPMessage()
+	amqpMessage, _ := ParseAMQPMessage(&message)
+	body, err := GenerateMailBody(cfg, &amqpMessage)
 	if err != nil {
-		t.Fatal(err)
+		t.Errorf("Failed while generating mail content" + err.Error())
 	}
+	if body == "" {
+		t.Errorf("Wrong generated content")
+	}
+}
+
+func TestSendMail(t *testing.T) {
+	cfg := getConfig()
+	message := getAMQPMessage()
+	amqpMessage, _ := ParseAMQPMessage(&message)
+	body, _ := GenerateMailBody(cfg, &amqpMessage)
+	SendMail(&amqpMessage, cfg, &body)
 }

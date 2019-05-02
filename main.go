@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -9,71 +8,86 @@ import (
 	"github.com/Microkubes/microservice-mail/config"
 	"github.com/Microkubes/microservice-mail/mail"
 	"github.com/Microkubes/microservice-tools/rabbitmq"
+	"github.com/streadway/amqp"
 )
 
-func logOnError(err error, msg string) {
+func logOnError(err error, msg string) bool {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
+		fmt.Println(msg, err)
+		return true
 	}
+	return false
 }
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
-		panic(fmt.Sprintf("%s: %s", msg, err))
+		log.Fatalf(msg, err)
+		panic(fmt.Sprintf(msg, err))
 	}
 }
 
 func main() {
+
+	cfg := getConfig()
+
+	amqpChannel := getAMQPChannel(cfg)
+	channel := rabbitmq.AMQPChannel{
+		Channel: amqpChannel,
+	}
+
+	for {
+		deliveryList, err := channel.Receive("email-queue")
+		logOnError(err, "Failed to consume the channel")
+		for delivery := range deliveryList {
+			go handleDelivery(delivery, cfg)
+		}
+	}
+}
+
+func handleDelivery(delivery amqp.Delivery, cfg *config.Config) bool {
+
+	log.Printf("Received a message: %s", delivery.Body)
+
+	message, err := mail.ParseAMQPMessage(&delivery.Body)
+	if logOnError(err, "Failed to parse AMQP Message") {
+		delivery.Ack(false)
+		return false
+	}
+
+	body, err := mail.GenerateMailBody(cfg, &message)
+	if logOnError(err, "Failed to generate mail body for template "+message.TemplateName) {
+		delivery.Ack(false)
+		return false
+	}
+
+	err = mail.SendMail(&message, cfg, &body)
+	if logOnError(err, "Failed to send mail to "+message.Email) {
+		delivery.Ack(false)
+		return false
+	}
+
+	log.Printf("Message to " + message.Email + " sucessfully sended!")
+	delivery.Ack(false)
+	return true
+}
+
+func getConfig() *config.Config {
 	cf := os.Getenv("SERVICE_CONFIG_FILE")
 	if cf == "" {
 		cf = "/run/secrets/microservice_mail_config.json"
 	}
 	cfg, err := config.LoadConfig(cf)
 	logOnError(err, "Failed to read the config file!")
+	return cfg
+}
 
-	conn, ch, err := rabbitmq.Dial(
-		cfg.RabbitMQ["username"],
-		cfg.RabbitMQ["password"],
-		cfg.RabbitMQ["host"],
-		cfg.RabbitMQ["post"],
+func getAMQPChannel(cfg *config.Config) *amqp.Channel {
+	_, ch, err := rabbitmq.Dial(
+		cfg.AMQPConfig["username"],
+		cfg.AMQPConfig["password"],
+		cfg.AMQPConfig["host"],
+		cfg.AMQPConfig["port"],
 	)
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-	defer ch.Close()
-
-	channel := &rabbitmq.AMQPChannel{ch}
-	msgs, err := channel.Receive("verification-email")
-	if err != nil {
-		logOnError(err, "Failed to consume the channel")
-	}
-
-	forever := make(chan bool)
-
-	go func() {
-		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
-
-			mailInfo := mail.Info{}
-			err := json.Unmarshal(d.Body, &mailInfo)
-			logOnError(err, "Failed to unmarshal body")
-
-			mailInfo.VerificationURL = cfg.VerificationURL
-			template, err := mail.ParseTemplate("./public/mail/template.html", mailInfo)
-			if err != nil {
-				logOnError(err, "Failed to parse mail tamplate")
-			}
-
-			err = mail.Send(&mailInfo, cfg, template)
-			logOnError(err, fmt.Sprintf("Failed to send mail to %s", mailInfo.Email))
-
-			d.Ack(false)
-			log.Printf("Done")
-		}
-	}()
-
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-
-	// Make goroutine to work forever
-	<-forever
+	failOnError(err, "Failed to connect to AMQP server")
+	return ch
 }

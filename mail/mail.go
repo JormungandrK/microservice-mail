@@ -2,24 +2,35 @@ package mail
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/smtp"
 	"os"
 	"strconv"
 
-	gomail "gopkg.in/gomail.v2"
-
 	"github.com/Microkubes/microservice-mail/config"
+	"gopkg.in/gomail.v2"
 )
 
-// Info holds info for the email template
-type Info struct {
-	ID              string `json:"id,omitempty"`
-	Name            string `json:"name,omitempty"`
-	Email           string `json:"email,omitempty"`
-	VerificationURL string `json:"verificationURL,omitempty"`
-	Token           string `json:"token,omitempty"`
+// AMQPMessage message received from AMQP server
+type AMQPMessage struct {
+	Email        string            `json:"email,omitempty"`
+	Data         map[string]string `json:"data,omitempty"`
+	TemplateName string            `json:"template,omitempty"`
+}
+
+// VerificationMail object specified for verification mails
+type VerificationMail struct {
+	URL   string `json:"url,omitempty"`
+	Token string `json:"token,omitempty"`
+}
+
+// ForgotPasswordMail object specified for forgot password mails
+type ForgotPasswordMail struct {
+	URL  string `json:"url,omitempty"`
+	Code string `json:"code,omitempty"`
 }
 
 // SMTP Auth to be used with unencrypted connections.
@@ -35,20 +46,56 @@ func (u *unencryptedAuth) Start(server *smtp.ServerInfo) (string, []byte, error)
 	return u.Auth.Start(server)
 }
 
-// Send sends an email for verification.
-func Send(mailInfo *Info, cfg *config.Config, template string) error {
-	message := gomail.NewMessage()
-	message.SetHeader("From", cfg.Mail["email"])
-	message.SetHeader("To", mailInfo.Email)
-	message.SetHeader("Subject", "Verify Your Account!")
-	message.SetBody("text/html", template)
+// ParseAMQPMessage helper for parsing AMQP message Body to our AMQPMessage
+func ParseAMQPMessage(body *[]byte) (AMQPMessage, error) {
+	msg := AMQPMessage{}
+	err := json.Unmarshal(*body, &msg)
+	if err != nil {
+		return msg, fmt.Errorf("Failed to parse message from AMQP Server")
+	}
+	if msg.Email == "" {
+		return msg, fmt.Errorf("Every AMQP Message must contain Email property")
+	}
+	if msg.TemplateName == "" {
+		return msg, fmt.Errorf("Every AMQP Message must contain TemplateName property")
+	}
+	return msg, nil
+}
+
+// GenerateMailBody generates mail body from configuration & message
+func GenerateMailBody(cfg *config.Config, message *AMQPMessage) (string, error) {
+	templateConfig, success := cfg.Template[message.TemplateName]
+
+	if !success {
+		return "", fmt.Errorf("Doesn't exist template config for received message [" + message.TemplateName + "]")
+	}
+	if message.Data == nil {
+		message.Data = map[string]string{}
+	}
+	for key, value := range templateConfig.Data {
+		message.Data[key] = value
+	}
+
+	content, err := parseTemplate(cfg.TemplateBaseLocation, templateConfig.Filename, message.Data)
+	if err != nil {
+		return "", fmt.Errorf("Failed on parsing template: %s", err)
+	}
+	return content, nil
+}
+
+// SendMail sends an email for verification.
+func SendMail(message *AMQPMessage, cfg *config.Config, body *string) error {
+	msg := gomail.NewMessage()
+	msg.SetHeader("From", cfg.Mail["email"])
+	msg.SetHeader("To", message.Email)
+	msg.SetHeader("Subject", cfg.Template[message.TemplateName].Subject)
+	msg.SetBody("text/html", *body)
 
 	port, err := strconv.Atoi(cfg.Mail["port"])
 	if err != nil {
 		return err
 	}
 	d := gomail.NewDialer(cfg.Mail["host"], port, cfg.Mail["user"], cfg.Mail["password"])
-
 	// ALLOW_UNENCRYPTED_CONNECTION is intended to be used only when developing and testing
 	// with internal/fake SMTP servers when the risk of sending data to the SMTP server
 	// over unencrypted channel is negligible. In production this setting must be turned OFF.
@@ -60,25 +107,19 @@ func Send(mailInfo *Info, cfg *config.Config, template string) error {
 		log.Println("[WARN] Authenticating and sending over unencrypted connection is allowed.")
 	}
 
-	err = d.DialAndSend(message)
+	err = d.DialAndSend(msg)
 	return err
 }
 
-// ParseTemplate creates a template using emailTemplate.html
-func ParseTemplate(templateFileName string, data interface{}) (string, error) {
-	tmpl, err := template.ParseFiles(templateFileName)
+func parseTemplate(baseLocation string, templateFilename string, data interface{}) (string, error) {
+	template, err := template.ParseFiles(baseLocation + templateFilename)
 	if err != nil {
 		return "", err
 	}
-
-	// Stores the parsed template
 	var buff bytes.Buffer
-
-	// Send the parsed template to buff
-	err = tmpl.Execute(&buff, data)
+	err = template.Execute(&buff, data)
 	if err != nil {
 		return "", err
 	}
-
 	return buff.String(), nil
 }
