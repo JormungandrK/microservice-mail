@@ -14,6 +14,9 @@ type MailTemplate struct {
 
 // Config holds the microservice full configuration.
 type Config struct {
+	// TemplatesBaseLocation defines base path to mail templates
+	TemplateBaseLocation string `json:"templatesBaseLocation"`
+
 	// VerificationURL contains the url to the verification action
 	Template map[string]MailTemplate `json:"templates"`
 

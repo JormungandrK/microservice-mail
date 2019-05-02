@@ -53,6 +53,12 @@ func ParseAMQPMessage(body *[]byte) (AMQPMessage, error) {
 	if err != nil {
 		return msg, fmt.Errorf("Failed to parse message from AMQP Server")
 	}
+	if msg.Email == "" {
+		return msg, fmt.Errorf("Every AMQP Message must contain Email property")
+	}
+	if msg.TemplateName == "" {
+		return msg, fmt.Errorf("Every AMQP Message must contain TemplateName property")
+	}
 	return msg, nil
 }
 
@@ -70,7 +76,7 @@ func GenerateMailBody(cfg *config.Config, message *AMQPMessage) (string, error) 
 		message.Data[key] = value
 	}
 
-	content, err := parseTemplate(templateConfig.Filename, message.Data)
+	content, err := parseTemplate(cfg.TemplateBaseLocation, templateConfig.Filename, message.Data)
 	if err != nil {
 		return "", fmt.Errorf("Failed on parsing template: %s", err)
 	}
@@ -105,8 +111,8 @@ func SendMail(message *AMQPMessage, cfg *config.Config, body *string) error {
 	return err
 }
 
-func parseTemplate(templateFilename string, data interface{}) (string, error) {
-	template, err := template.ParseFiles("./public/template/" + templateFilename)
+func parseTemplate(baseLocation string, templateFilename string, data interface{}) (string, error) {
+	template, err := template.ParseFiles(baseLocation + templateFilename)
 	if err != nil {
 		return "", err
 	}
