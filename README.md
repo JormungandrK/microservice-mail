@@ -68,6 +68,16 @@ Here's an example of a JSON configuration file:
 
 ```json
 {
+	"templatesBaseLocation": "./public/template/",
+	"templates": {
+		"templateName": {
+			"filename" : "template-filename.html",
+			"subject": "Subject of the mail",
+			"data": {
+				"example": "value"
+			}
+		}
+	},
 	"mail": {
 		"host": "fakesmtp",
 		"port": "25",
@@ -83,6 +93,21 @@ Here's an example of a JSON configuration file:
 	}
 }
 ```
+## How to use
+Send message to AMQP topic "email-queue" formatted in the following structure
+```
+type AMQPMessage struct {
+	Email        string            `json:"email,omitempty"`
+	Template     string            `json:"template,omitempty"`
+	Data         map[string]string `json:"data,omitempty"`
+}
+```
+
+Email json["email"] - "Send To" Email
+
+Template json["template"] - name of the template defined in config.json
+
+Data json["data"] - map with all properties that are required by the template
 
 ## Contributing
 
